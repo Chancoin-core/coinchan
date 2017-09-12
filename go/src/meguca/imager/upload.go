@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"io"
 	"io/ioutil"
 	"log"
 	"meguca/auth"
@@ -121,31 +122,36 @@ func LogError(w http.ResponseWriter, r *http.Request, code int, err error) {
 // ParseUpload parses the upload form. Separate function for cleaner error
 // handling and reusability. Returns the HTTP status code of the response and an
 // error, if any.
-func ParseUpload(req *http.Request) (int, string, error) {
-	if err := parseUploadForm(req); err != nil {
-		return 400, "", err
+func ParseUpload(req *http.Request) (code int, token string, err error) {
+	err = parseUploadForm(req)
+	if err != nil {
+		code = 400
+		return
 	}
 
 	file, _, err := req.FormFile("image")
 	if err != nil {
-		return 400, "", err
+		code = 400
+		return
 	}
 	defer file.Close()
 
-	data, err := ioutil.ReadAll(file)
+	hash := sha1.New()
+	_, err = io.Copy(hash, file)
 	if err != nil {
-		return 500, "", err
+		code = 500
+		return
 	}
-
-	sum := sha1.Sum(data)
+	sum := sha1.Sum(nil)
 	SHA1 := hex.EncodeToString(sum[:])
+
 	img, err := db.GetImage(SHA1)
 	switch err {
 	case nil: // Already have a thumbnail
 		return newImageToken(SHA1)
 	case sql.ErrNoRows:
 		img.SHA1 = SHA1
-		return newThumbnail(data, img)
+		return newThumbnail(file, img)
 	default:
 		return 500, "", err
 	}
@@ -169,18 +175,20 @@ func parseUploadForm(req *http.Request) error {
 	if length > uint64(config.Get().MaxSize<<20) {
 		return errTooLarge
 	}
-	return req.ParseMultipartForm(0)
+	return req.ParseMultipartForm(512) // Sniff size of thumbnailer
 }
 
 // Create a new thumbnail, commit its resources to the DB and filesystem, and
-// pass the image data to the client.
-func newThumbnail(data []byte, img common.ImageCommon) (int, string, error) {
+// pass the image data to the client
+func newThumbnail(rs io.ReadSeeker, img common.ImageCommon) (
+	int, string, error,
+) {
 	conf := config.Get()
-	thumb, err := processFile(data, &img, thumbnailer.Options{
+	src, thumb, err := processFile(rs, &img, thumbnailer.Options{
 		JPEGQuality: conf.JPEGQuality,
 		MaxSourceDims: thumbnailer.Dims{
-			Width:  uint(conf.MaxWidth),
-			Height: uint(conf.MaxHeight),
+			Width:  uint64(conf.MaxWidth),
+			Height: uint64(conf.MaxHeight),
 		},
 		ThumbDims: thumbnailer.Dims{
 			Width:  150,
@@ -188,15 +196,17 @@ func newThumbnail(data []byte, img common.ImageCommon) (int, string, error) {
 		},
 		AcceptedMimeTypes: allowedMimeTypes,
 	})
-	switch err.(type) {
+	switch err {
 	case nil:
-	case thumbnailer.UnsupportedMIMEError:
+	case thumbnailer.ErrUnsupportedMIME:
 		return 400, "", err
 	default:
 		return 500, "", err
 	}
+	defer thumbnailer.PutBytes(src)
+	defer thumbnailer.PutBytes(thumb)
 
-	if err := db.AllocateImage(data, thumb, img); err != nil {
+	if err := db.AllocateImage(src, thumb, img); err != nil {
 		return 500, "", err
 	}
 	return newImageToken(img.SHA1)
@@ -204,27 +214,39 @@ func newThumbnail(data []byte, img common.ImageCommon) (int, string, error) {
 
 // Separate function for easier testability
 func processFile(
-	data []byte,
+	rs io.ReadSeeker,
 	img *common.ImageCommon,
 	opts thumbnailer.Options,
 ) (
+	srcData []byte,
 	thumbData []byte,
 	err error,
 ) {
-	src, thumb, err := thumbnailer.ProcessBuffer(data, opts)
+	src, thumb, err := thumbnailer.Process(rs, opts)
 	switch err {
 	case nil:
-	case thumbnailer.ErrNoCoverArt:
+	case thumbnailer.ErrNoThumb:
 		err = nil
 	default:
 		return
 	}
-
 	thumbData = thumb.Data
+
+	// Read everything into memory for further processing
+	srcBuf := thumbnailer.GetBuffer()
+	_, err = rs.Seek(0, 0)
+	if err != nil {
+		return
+	}
+	_, err = srcBuf.ReadFrom(rs)
+	if err != nil {
+		return
+	}
+	srcData = srcBuf.Bytes()
 
 	img.FileType = mimeTypes[src.Mime]
 	if img.FileType == common.PNG {
-		img.APNG = apngdetector.Detect(data)
+		img.APNG = apngdetector.Detect(srcData)
 	}
 	if thumb.Data == nil {
 		img.ThumbType = common.NoFile
@@ -235,7 +257,7 @@ func processFile(
 	img.Audio = src.HasAudio
 	img.Video = src.HasVideo
 	img.Length = uint32(src.Length / time.Second)
-	img.Size = len(data)
+	img.Size = len(srcData)
 	img.Artist = src.Artist
 	img.Title = src.Title
 	img.Dims = [4]uint16{
@@ -245,7 +267,7 @@ func processFile(
 		uint16(thumb.Height),
 	}
 
-	sum := md5.Sum(data)
+	sum := md5.Sum(srcData)
 	img.MD5 = base64.RawURLEncoding.EncodeToString(sum[:])
 
 	return

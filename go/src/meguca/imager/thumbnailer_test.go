@@ -37,8 +37,10 @@ func TestImageProcessing(t *testing.T) {
 			t.Parallel()
 
 			var img common.ImageCommon
-			thumb, err := processFile(
-				readSample(t, "sample."+c.ext),
+			f := openSample(t, "sample."+c.ext)
+			defer f.Close()
+			_, thumb, err := processFile(
+				f,
 				&img,
 				thumbnailer.Options{
 					ThumbDims: thumbnailer.Dims{

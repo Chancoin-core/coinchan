@@ -70,7 +70,9 @@ func newJPEGRequest(t *testing.T) *http.Request {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = file.Write(readSample(t, assets.StdJPEG.Name))
+	src := openSample(t, assets.StdJPEG.Name)
+	defer src.Close()
+	_, err = io.Copy(file, src)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,12 +186,12 @@ func TestAPNGThumbnailing(t *testing.T) {
 		t.Run(ext, func(t *testing.T) {
 			t.Parallel()
 
-			img := common.ImageCommon{
+			f := openSample(t, "sample."+ext)
+			defer f.Close()
+			_, _, err := newThumbnail(f, common.ImageCommon{
 				SHA1: ext,
-			}
-			data := readSample(t, "sample."+ext)
-
-			if _, _, err := newThumbnail(data, img); err != nil {
+			})
+			if err != nil {
 				t.Fatal(err)
 			}
 

@@ -3,26 +3,29 @@ package imager
 import "github.com/bakape/thumbnailer"
 
 func init() {
-	for _, fn := range [...]thumbnailer.MatcherFunc{
-		detect7z,
-		detectZip,
-		detectTarGZ,
-		detectTarXZ,
-		detectText, // Has to be last, in case any other formats are pure UTF-8
-	} {
-		thumbnailer.RegisterMatcher(fn)
+	formats := [...]struct {
+		mime, ext string
+		fn        thumbnailer.MatchFunc
+	}{
+		{mime7Zip, "7z", detect7z},
+		{mimeZip, "zip", detectZip},
+		{mimeTarGZ, "tar.gz", detectTarGZ},
+		{mimeTarXZ, "tar.xz", detectTarXZ},
+		// Has to be last, in case any other formats are pure UTF-8
+		{mimeText, ".txt", detectText},
 	}
-	for _, m := range [...]string{
-		mimeZip, mime7Zip, mimeTarGZ, mimeTarXZ, mimeText,
-	} {
-		thumbnailer.RegisterProcessor(m, noopProcessor)
+
+	for _, f := range formats {
+		m := thumbnailer.NewFuncMatcher(f.mime, f.ext, f.fn)
+		thumbnailer.RegisterMatcher(m)
+		thumbnailer.RegisterProcessor(f.mime, noopProcessor)
 	}
 }
 
 // Does nothing.
 // Needed for the thumbnailer to accept these as validly processed.
-func noopProcessor(src thumbnailer.Source, _ thumbnailer.Options) (
-	thumbnailer.Source, thumbnailer.Thumbnail, error,
+func noopProcessor(src *thumbnailer.Source, _ thumbnailer.Options) (
+	thumbnailer.Thumbnail, error,
 ) {
-	return src, thumbnailer.Thumbnail{}, nil
+	return thumbnailer.Thumbnail{}, nil
 }

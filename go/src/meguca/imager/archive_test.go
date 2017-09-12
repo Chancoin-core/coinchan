@@ -52,7 +52,7 @@ func TestProcessArchive(t *testing.T) {
 			t.Parallel()
 
 			var img common.ImageCommon
-			_, err := processFile(readSample(t, c.file), &img, dummyOpts)
+			_, _, err := processFile(openSample(t, c.file), &img, dummyOpts)
 			if c.err != "" {
 				if err == nil {
 					t.Fatalf("expected an error")

@@ -31,7 +31,9 @@ func TestProcessWebm(t *testing.T) {
 			t.Parallel()
 
 			var img common.ImageCommon
-			thumb, err := processFile(readSample(t, c.name), &img, dummyOpts)
+			f := openSample(t, c.name)
+			defer f.Close()
+			_, thumb, err := processFile(f, &img, dummyOpts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -111,11 +113,9 @@ func TestProcessOGG(t *testing.T) {
 			t.Parallel()
 
 			var img common.ImageCommon
-			thumb, err := processFile(
-				readSample(t, c.file+".ogg"),
-				&img,
-				dummyOpts,
-			)
+			f := openSample(t, c.file+".ogg")
+			defer f.Close()
+			_, thumb, err := processFile(f, &img, dummyOpts)
 			if err != c.err {
 				t.Fatal(err)
 			}
@@ -192,11 +192,9 @@ func TestProcessMP4(t *testing.T) {
 			t.Parallel()
 
 			var img common.ImageCommon
-			thumb, err := processFile(
-				readSample(t, c.file+".mp4"),
-				&img,
-				dummyOpts,
-			)
+			f := openSample(t, c.file+".mp4")
+			defer f.Close()
+			_, thumb, err := processFile(f, &img, dummyOpts)
 			if err != c.err {
 				t.Fatal(err)
 			}

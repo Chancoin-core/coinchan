@@ -16,19 +16,13 @@ const (
 )
 
 // Detect if file is a TAR archive compressed with GZIP
-func detectTarGZ(buf []byte) (mime string, ext string) {
+func detectTarGZ(buf []byte, _ io.ReadSeeker) bool {
 	if !bytes.HasPrefix(buf, []byte("\x1F\x8B\x08")) {
-		return
+		return false
 	}
 
 	r, err := gzip.NewReader(bytes.NewReader(buf))
-	switch {
-	case err != nil:
-	case isTar(r):
-		mime = mimeTarGZ
-		ext = "tar.gz"
-	}
-	return
+	return err == nil && isTar(r)
 }
 
 // Read the start of the file and determine, if it is a TAR archive
@@ -42,33 +36,21 @@ func isTar(r io.Reader) bool {
 }
 
 // Detect if file is a TAR archive compressed with XZ
-func detectTarXZ(buf []byte) (mime string, ext string) {
+func detectTarXZ(buf []byte, _ io.ReadSeeker) bool {
 	if !bytes.HasPrefix(buf, []byte{0xFD, '7', 'z', 'X', 'Z', 0x00}) {
-		return "", ""
+		return false
 	}
 
 	r, err := xz.NewReader(bytes.NewReader(buf))
-	switch {
-	case err != nil:
-	case isTar(r):
-		mime = mimeTarXZ
-		ext = "tar.xz"
-	}
-	return
+	return err == nil && isTar(r)
 }
 
 // Detect if file is a 7zip archive
-func detect7z(buf []byte) (string, string) {
-	if bytes.HasPrefix(buf, []byte{'7', 'z', 0xBC, 0xAF, 0x27, 0x1C}) {
-		return mime7Zip, "7z"
-	}
-	return "", ""
+func detect7z(buf []byte, _ io.ReadSeeker) bool {
+	return bytes.HasPrefix(buf, []byte{'7', 'z', 0xBC, 0xAF, 0x27, 0x1C})
 }
 
 // Detect zip archives
-func detectZip(data []byte) (string, string) {
-	if bytes.HasPrefix(data, []byte("\x50\x4B\x03\x04")) {
-		return mimeZip, "zip"
-	}
-	return "", ""
+func detectZip(data []byte, _ io.ReadSeeker) bool {
+	return bytes.HasPrefix(data, []byte("\x50\x4B\x03\x04"))
 }
