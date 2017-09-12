@@ -76,6 +76,8 @@ func TestImageProcessing(t *testing.T) {
 }
 
 func writeSample(t *testing.T, name string, buf []byte) {
+	t.Helper()
+
 	path := filepath.Join("testdata", name)
 
 	// Remove previous file, if any

@@ -24,12 +24,16 @@ func TestProcessMP3NoCover(t *testing.T) {
 }
 
 func assertFileType(t *testing.T, res, std uint8) {
+	t.Helper()
+
 	if res != std {
 		t.Errorf("unexpected file type: %d : %d", std, res)
 	}
 }
 
 func assertLength(t *testing.T, res, std uint32) {
+	t.Helper()
+
 	if res != std {
 		t.Errorf("unexpected length: %d : %d", std, res)
 	}
@@ -41,7 +45,7 @@ func TestProcessMP3(t *testing.T) {
 	var img common.ImageCommon
 	f := openSample(t, "with_cover.mp3")
 	defer f.Close()
-	_, thumb, err := processFile(f,		&img,		dummyOpts,	)
+	_, thumb, err := processFile(f, &img, dummyOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
