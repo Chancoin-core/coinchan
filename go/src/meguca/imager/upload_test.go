@@ -176,6 +176,13 @@ func TestSuccessfulFormParse(t *testing.T) {
 }
 
 func TestNewThumbnail(t *testing.T) {
+	conf := config.Configs{
+		MaxSize: 20,
+	}
+	if err := config.Set(conf); err != nil {
+		t.Fatal(err)
+	}
+
 	assertTableClear(t, "images")
 	resetDirs(t)
 

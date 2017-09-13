@@ -142,7 +142,7 @@ func ParseUpload(req *http.Request) (code int, token string, err error) {
 		code = 500
 		return
 	}
-	sum := sha1.Sum(nil)
+	sum := hash.Sum(nil)
 	SHA1 := hex.EncodeToString(sum[:])
 
 	img, err := db.GetImage(SHA1)
