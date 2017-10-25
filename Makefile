@@ -32,17 +32,15 @@ client_deps:
 
 wasm:
 	mkdir -p www/wasm
-	cargo build --target=wasm32-unknown-emscripten --release
-	cp `ls -S target/wasm32-unknown-emscripten/release/deps/client*.wasm | tail -n 1` www/wasm/main.wasm
-	cp `ls -S target/wasm32-unknown-emscripten/release/deps/client*.asm.js | tail -n 1` www/wasm/main.asm.js
-	sed 's/client-[0-9a-f]\{16\}\./main\./g' target/wasm32-unknown-emscripten/release/client.js > www/wasm/main.js
+	$(MAKE) -C client_cpp
+	rm -f www/wasm/main.*
+	cp client_cpp/*.wasm client_cpp/*.js www/wasm
+ifeq ($(DEBUG),1)
+	cp client_cpp/*.wast client_cpp/*.wasm.map www/wasm
+endif
 
-wasm_debug:
-	mkdir -p www/wasm
-	cargo build --target=wasm32-unknown-emscripten
-	cp `ls -S target/wasm32-unknown-emscripten/debug/deps/client*.wasm | tail -n 1` www/wasm/main.wasm
-	cp `ls -S target/wasm32-unknown-emscripten/debug/deps/client*.asm.js | tail -n 1` www/wasm/main.asm.js
-	sed 's/client-[0-9a-f]\{16\}\./main\./g' target/wasm32-unknown-emscripten/debug/client.js > www/wasm/main.js
+clean_wasm:
+	$(MAKE) -C client_cpp clean
 
 watch:
 	$(gulp) -w
@@ -59,12 +57,15 @@ ifeq ($(is_windows), true)
 	cp /mingw64/bin/*.dll ./
 endif
 
-generate:
+generate: clean_generated
 	go get -v github.com/valyala/quicktemplate/qtc github.com/jteeuwen/go-bindata/... github.com/mailru/easyjson/...
+	go generate meguca/...
+
+clean_generated:
+	rm -f go/src/meguca/db/bin_data.go go/src/meguca/lang/bin_data.go go/src/meguca/assets/bin_data.go
 	rm -f go/src/meguca/common/*_easyjson.go
 	rm -f go/src/meguca/config/*_easyjson.go
 	rm -f go/src/meguca/templates/*.qtpl.go
-	go generate meguca/...
 
 server_deps:
 	go list -f '{{.Deps}}' meguca | tr -d '[]' | xargs go get -v
@@ -75,9 +76,9 @@ update_deps:
 	npm update
 
 client_clean:
-	rm -rf www/js www/wasm www/css/*.css www/css/maps www/lang node_modules
+	rm -rf www/js www/wasm www/css/*.css www/css/maps node_modules
 
-clean: client_clean
+clean: client_clean clean_wasm clean_generated
 	rm -rf .build .ffmpeg .package target meguca-*.zip meguca-*.tar.xz meguca meguca.exe
 	$(MAKE) -C scripts/migration/3to4 clean
 ifeq ($(is_windows), true)

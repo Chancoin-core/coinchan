@@ -25,7 +25,7 @@ func loadConfigs() error {
 	}
 	config.Set(conf)
 
-	return listenFunc("config_updates", updateConfigs)
+	return Listen("config_updates", updateConfigs)
 }
 
 // GetConfigs retrieves global configurations. Only used in tests.
@@ -64,7 +64,7 @@ func loadBoardConfigs() error {
 		return err
 	}
 
-	return listenFunc("board_updated", updateBoardConfigs)
+	return Listen("board_updated", updateBoardConfigs)
 }
 
 func scanBoardConfigs(r rowScanner) (c config.BoardConfigs, err error) {
@@ -72,7 +72,7 @@ func scanBoardConfigs(r rowScanner) (c config.BoardConfigs, err error) {
 	err = r.Scan(
 		&c.ReadOnly, &c.TextOnly, &c.ForcedAnon, &c.DisableRobots, &c.Flags,
 		&c.NSFW, &c.NonLive, &c.PosterIDs,
-		&c.ID, &c.DefaultCSS, &c.Title, &c.Notice, &c.Rules, &eightball,
+		&c.ID, &c.DefaultCSS, &c.Title, &c.Notice, &c.Rules, &eightball, &c.Js,
 	)
 	c.Eightball = []string(eightball)
 	return
@@ -84,7 +84,7 @@ func WriteBoard(tx *sql.Tx, c BoardConfigs) error {
 		c.ID, c.ReadOnly, c.TextOnly, c.ForcedAnon, c.DisableRobots, c.Flags,
 		c.NSFW, c.NonLive, c.PosterIDs,
 		c.Created, c.DefaultCSS, c.Title, c.Notice, c.Rules,
-		pq.StringArray(c.Eightball),
+		pq.StringArray(c.Eightball), c.Js,
 	)
 	return err
 }
@@ -96,7 +96,7 @@ func UpdateBoard(c config.BoardConfigs) error {
 		c.ID, c.ReadOnly, c.TextOnly, c.ForcedAnon, c.DisableRobots, c.Flags,
 		c.NSFW, c.NonLive, c.PosterIDs,
 		c.DefaultCSS, c.Title, c.Notice, c.Rules,
-		pq.StringArray(c.Eightball),
+		pq.StringArray(c.Eightball), c.Js,
 	)
 }
 

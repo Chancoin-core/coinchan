@@ -17,7 +17,7 @@ var (
 	totalUsed int
 	mu        sync.Mutex
 
-	// Size sets the maximum size of cache before evicting unread data in MB
+	// Size sets the maximum size of the cache before evicting unread data in MB
 	Size float64 = 1 << 7
 )
 
@@ -66,28 +66,26 @@ func Clear() {
 	mu.Lock()
 	defer mu.Unlock()
 
-	ll = list.New()
+	ll = ll.Init()
 	cache = make(map[Key]*list.Element, 10)
+	totalUsed = 0
 }
 
 // Update the total used memory counter and evict, if over limit
-func updateUsedSize(delta int) {
+func updateUsedSize(k Key, delta int) {
 	mu.Lock()
 	defer mu.Unlock()
 
+	// Guard against asynchronous double eviction
+	if _, ok := cache[k]; !ok {
+		return
+	}
 	totalUsed += delta
 
 	for totalUsed > int(Size)*(1<<20) {
-		last := ll.Back()
-		if last == nil {
-			return
+		if last := ll.Back(); last != nil {
+			removeEntry(last)
 		}
-		s := ll.Remove(last).(*store)
-		delete(cache, s.key)
-
-		s.sizeMu.Lock()
-		totalUsed -= s.size
-		s.sizeMu.Unlock()
 	}
 }
 
@@ -116,7 +114,7 @@ func (s *store) update(data interface{}, json, html []byte, f FrontEnd) {
 	s.sizeMu.Unlock()
 
 	// In a separate goroutine, to ensure there is never any lock intersection
-	go updateUsedSize(delta)
+	go updateUsedSize(s.key, delta)
 }
 
 // Calculating the actual memory footprint of the stored post data is expensive.
@@ -127,4 +125,37 @@ func computeSize(data interface{}, json, html []byte) int {
 		newSize += len(json)
 	}
 	return newSize
+}
+
+// Delete an entry by key. If no entry found, this is a NOP.
+func Delete(k Key) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if el := cache[k]; el != nil {
+		removeEntry(el)
+	}
+}
+
+// Remove entry from cache. Requires lock of mu.
+func removeEntry(el *list.Element) {
+	s := ll.Remove(el).(*store)
+	delete(cache, s.key)
+
+	s.sizeMu.Lock()
+	totalUsed -= s.size
+	s.sizeMu.Unlock()
+}
+
+// Delete all entries by the board property of Key.
+// If no entries found, this is a NOP.
+func DeleteByBoard(board string) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	for k, el := range cache {
+		if k.Board == board {
+			removeEntry(el)
+		}
+	}
 }

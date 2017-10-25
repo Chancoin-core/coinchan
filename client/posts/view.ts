@@ -7,8 +7,9 @@ import ImageHandler from "./images"
 import { ViewAttrs } from "../base"
 import { findSyncwatches } from "./syncwatch"
 import lang from "../lang"
-import { page } from "../state"
+import { page, mine } from "../state"
 import options from "../options"
+import countries from "./countries"
 
 // Base post view class
 export default class PostView extends ImageHandler {
@@ -159,7 +160,7 @@ export default class PostView extends ImageHandler {
         if (flag) {
             const el = this.el.querySelector(".flag")
             el.setAttribute("src", `/assets/flags/${flag}.svg`)
-            el.setAttribute("title", flag)
+            el.setAttribute("title", countries[flag] || flag)
             el.hidden = false
         }
     }
@@ -206,7 +207,7 @@ export default class PostView extends ImageHandler {
         }
 
         let html = ""
-        const { trip, name, auth, sage, posterID } = this.model
+        const { trip, name, auth, sage, posterID, id } = this.model
         if (name || !trip) {
             html += `<span>${name ? escape(name) : lang.posts["anon"]}</span>`
         }
@@ -220,12 +221,17 @@ export default class PostView extends ImageHandler {
             el.classList.add("admin")
             html += `<span>## ${lang.posts[auth] || "??"}</span>`
         }
+        if (mine.has(id)) {
+            html += `<i>${lang.posts["you"]}</i>`
+        }
         el.classList.toggle("sage", !!sage)
         el.innerHTML = html
     }
 
     // Render "USER WAS BANNED FOR THIS POST" message
     public renderBanned() {
+        this.uncheckModerationBox()
+
         const el = firstChild(this.el.querySelector(".post-container"), el =>
             el.classList.contains("banned"))
         if (el) {
@@ -251,6 +257,7 @@ export default class PostView extends ImageHandler {
     // Render indications that a post had been deleted
     public renderDeleted() {
         this.el.classList.add("deleted")
+        this.uncheckModerationBox()
     }
 
     // Render the sticky status of a thread OP

@@ -12,7 +12,6 @@ type Configs struct {
 	MaxWidth      uint16 `json:"maxWidth"`
 	MaxHeight     uint16 `json:"maxHeight"`
 	BoardExpiry   uint   `json:"boardExpiry"`
-	MaxSize       uint   `json:"maxSize"`
 	SessionExpiry uint   `json:"sessionExpiry"`
 	RootURL       string `json:"rootURL"`
 	Salt          string `json:"salt"`
@@ -28,6 +27,7 @@ type Public struct {
 	PruneThreads      bool              `json:"pruneThreads"`
 	ThreadExpiryMin   uint              `json:"threadExpiryMin"`
 	ThreadExpiryMax   uint              `json:"threadExpiryMax"`
+	MaxSize           uint              `json:"maxSize"`
 	DefaultLang       string            `json:"defaultLang"`
 	DefaultCSS        string            `json:"defaultCSS"`
 	ImageRootOverride string            `json:"imageRootOverride"`
@@ -39,6 +39,7 @@ type BoardConfigs struct {
 	BoardPublic
 	DisableRobots bool     `json:"disableRobots"`
 	ID            string   `json:"id"`
+	Js            string   `json:"js"`
 	Eightball     []string `json:"eightball"`
 }
 

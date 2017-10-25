@@ -56,6 +56,17 @@ export default class ImageHandler extends View<Post> {
 		if (el) {
 			el.remove()
 		}
+		this.uncheckModerationBox()
+	}
+
+	// Uncheck moderation box, if any.
+	// This prevents staff from moderating posts, that have already been
+	// moderated. At least to some extent.
+	protected uncheckModerationBox() {
+		const el = this.el.querySelector(".mod-checkbox") as HTMLInputElement
+		if (el) {
+			el.checked = false
+		}
 	}
 
 	// Render the actual thumbnail image
@@ -216,7 +227,7 @@ export default class ImageHandler extends View<Post> {
 			case fileTypes.jpg:
 			case fileTypes.gif:
 			case fileTypes.png:
-				if (size < 8 << 20) {
+				if (size < 8 << 20) { // Limit on many engines
 					root = "src"
 					type = fileType
 				}
